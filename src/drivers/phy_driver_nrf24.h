@@ -8,6 +8,7 @@
  */
 
 #define NRF24_PAYLOAD_SIZE		32
+#define RETRANSMIT_MAX			15
 
 /* Used to read/write operations */
 struct nrf24_io_pack {

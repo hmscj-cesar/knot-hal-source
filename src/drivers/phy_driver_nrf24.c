@@ -35,19 +35,29 @@ const uint8_t broadcast_addr[5] = {0x8D, 0xD9, 0xBE, 0x96, 0xDE};
 static ssize_t nrf24l01_write(int spi_fd, const void *buffer, size_t len)
 {
 	int err;
+	uint8_t rt;
 	struct nrf24_io_pack *p = (struct nrf24_io_pack *) buffer;
 
 	/* Puts the radio in TX mode  enabling Acknowledgment */
 	nrf24l01_set_ptx(spi_fd, p->pipe);
 
-	/* Transmits the data */
-	nrf24l01_ptx_data(spi_fd, (void *)p->payload, len);
+	/* Transmits the data and attemp retransmission if it fails */
+	for (rt=0; rt<RETRANSMIT_MAX; rt++){
 
-	/* Waits for ACK */
-	err = nrf24l01_ptx_wait_datasent(spi_fd);
+		nrf24l01_ptx_data(spi_fd, (void *)p->payload, len);
 
-	if (err < 0)
+		/* Waits for ACK */
+		err = nrf24l01_ptx_wait_datasent(spi_fd);
+
+		if (err == 0)
+			rt = RETRANSMIT_MAX;
+
+	}		 
+
+	/*Transmission failed/ack wasnt received*/
+	if (err < 0)		
 		return err;
+
 	/*
 	 * The radio do not receive and send at the same time
 	 * It's a good practice to put the radio in RX mode
