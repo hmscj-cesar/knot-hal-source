@@ -21,6 +21,7 @@
 #include <json-c/json.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <time.h>
 
 #include "hal/nrf24.h"
 #include "hal/comm.h"
@@ -67,6 +68,7 @@ struct peer {
 	guint kwatch; /* KNoT raw socket watch */
 };
 
+
 static struct peer peers[MAX_PEERS] = {
 	{.socket_fd = -1},
 	{.socket_fd = -1},
@@ -106,6 +108,13 @@ static const gchar introspection_xml[] =
 	"    </method>"
 	"  </interface>"
 	"</node>";
+
+static void timestamp()
+{
+    time_t ltime; /* calendar time */
+    ltime=time(NULL); /* get current cal time */
+    printf("%s",asctime( localtime(&ltime) ) );
+}
 
 static int write_file(const gchar *addr, const gchar *key, const gchar *name)
 {
@@ -763,6 +772,7 @@ static int8_t evt_presence(struct mgmt_nrf24_header *mhdr)
 	 */
 	hal_log_info("Thing sending presence. MAC = %s Name = %s",
 							mac_str, evt_pre->name);
+	timestamp();
 	peer->last_beacon = hal_time_ms();
 	strncpy(peer->name, (char *) evt_pre->name,
 					MIN(sizeof(peer->name) - 1,
@@ -1217,6 +1227,7 @@ static gboolean check_timeout(gpointer key, gpointer value, gpointer user_data)
 	if (hal_timeout(hal_time_ms(), peer->last_beacon,
 							BCAST_TIMEOUT) > 0) {
 		hal_log_info("Peer %s timedout.", (char *) key);
+		timestamp();
 		return TRUE;
 	}
 

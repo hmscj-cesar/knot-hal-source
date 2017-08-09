@@ -31,8 +31,8 @@
 #define _MIN(a, b)		((a) < (b) ? (a) : (b))
 #define DATA_SIZE 128
 #define MGMT_SIZE 32
-#define MGMT_TIMEOUT 10
-#define RAW_TIMEOUT 60
+#define MGMT_TIMEOUT 20
+#define RAW_TIMEOUT 80
 
 #define SET_BIT(val, idx)	((val) |= 1 << (idx))
 #define CLR_BIT(val, idx)	((val) &= ~(1 << (idx)))
