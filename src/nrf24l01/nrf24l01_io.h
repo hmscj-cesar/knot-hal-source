@@ -118,6 +118,7 @@
 #define NRF24_ARD_1000US				0b0011
 #define NRF24_ARD_1250US				0b0100
 #define NRF24_ARD_1500US				0b0101
+#define NRF24_ARD_1750US				0b0110
 #define NRF24_ARD_40000US				0b1111
 #define NRF24_RETR_ARC_MASK		0b00001111
 /* Auto Retransmit count: 0 <= v <= 15 valid values */
