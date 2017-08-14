@@ -101,7 +101,7 @@ struct nrf24_ll_crtl_pdu {
 } __attribute__ ((packed));
 
 
-#define NRF24_KEEPALIVE_SEND_MS		512
+#define NRF24_KEEPALIVE_SEND_MS		500
 #define NRF24_KEEPALIVE_TIMEOUT_MS	(10 * NRF24_KEEPALIVE_SEND_MS)
 
 /*
