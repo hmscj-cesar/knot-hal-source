@@ -43,7 +43,6 @@
 static uint8_t raw_timeout = 10;
 
 static uint8_t rt_stamp = 0;
-static uint8_t things_connected = 0;
 
 #define SET_BIT(val, idx)	((val) |= 1 << (idx))
 #define CLR_BIT(val, idx)	((val) &= ~(1 << (idx)))
@@ -159,7 +158,7 @@ enum {
 static uint8_t new_raw_time()
 {
 	uint8_t new_time = 0;
-	
+
 	if CHK_BIT(pipe_bitmask, 1)
 		new_time+= PIPE1_WINDOW;
 	if CHK_BIT(pipe_bitmask, 2)
@@ -701,15 +700,10 @@ static void running(void)
 
 		/* Start broadcast or scan? */
 		if (CHK_BIT(pipe_bitmask, 0)) {
-			
-			if (things_connected < 5){
-				/* Check  raw timeout and rt time stamp*/
-				if ( hal_timeout(hal_time_ms(), start, raw_timeout) > 0 &&
-					hal_timeout(hal_time_ms(), rt_stamp, (things_connected*6) ) > 0)
-				{
-					state = START_MGMT;
-				}
-			}
+
+			/* Check  raw timeout and rt time stamp*/
+			if ( hal_timeout(hal_time_ms(), start, raw_timeout) > 0)
+				state = START_MGMT;
 		}
 
 		/* Check if pipe is allocated */
@@ -748,7 +742,6 @@ static void running(void)
 				phy_ioctl(driverIndex, NRF24_CMD_RESET_PIPE,
 								&sockIndex);
 				raw_timeout = new_raw_time();
-				things_connected--;
 			}
 		}
 
@@ -897,7 +890,6 @@ int hal_comm_close(int sockfd)
 		CLR_BIT(pipe_bitmask, peers[sockfd - 1].pipe);
 		phy_ioctl(driverIndex, NRF24_CMD_RESET_PIPE, &sockfd);
 		raw_timeout = new_raw_time();
-		things_connected--;
 		/* Disable to send keep alive request */
 		peers[sockfd-1].keepalive = 0;
 	}
@@ -1025,7 +1017,6 @@ int hal_comm_accept(int sockfd, void *addr)
 	phy_ioctl(driverIndex, NRF24_CMD_SET_PIPE, &p_addr);
 	/*Resize data channel time*/
 	raw_timeout = new_raw_time();
-	things_connected++;
 
 	/* Source address for keepalive message */
 	peers[pipe-1].mac.address.uint64 =
