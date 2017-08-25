@@ -43,6 +43,7 @@
 static uint8_t raw_timeout = 10;
 
 static uint8_t rt_stamp = 0;
+static uint8_t rt_offset = 0;
 
 #define SET_BIT(val, idx)	((val) |= 1 << (idx))
 #define CLR_BIT(val, idx)	((val) &= ~(1 << (idx)))
@@ -169,6 +170,11 @@ static uint8_t new_raw_time()
 		new_time+= PIPE4_WINDOW;
 	if CHK_BIT(pipe_bitmask, 5)
 		new_time+= PIPE5_WINDOW;
+
+	rt_offset = new_time/3;
+	if (rt_offset > 20){
+		rt_offset -= 5;
+	}
 
 	return new_time;
 }
@@ -701,9 +707,11 @@ static void running(void)
 		/* Start broadcast or scan? */
 		if (CHK_BIT(pipe_bitmask, 0)) {
 
-			/* Check  raw timeout and rt time stamp*/
-			if ( hal_timeout(hal_time_ms(), start, raw_timeout) > 0)
+			if ( hal_timeout(hal_time_ms(), start, raw_timeout) > 0 &&
+				hal_timeout(hal_time_ms(), rt_stamp, (rt_offset) ) > 0)
+			{
 				state = START_MGMT;
+			}
 		}
 
 		/* Check if pipe is allocated */
