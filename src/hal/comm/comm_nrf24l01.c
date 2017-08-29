@@ -526,7 +526,7 @@ static int read_raw(int spi_fd, int sockfd)
 					mac_local);
 			} else if (llctrl->opcode == NRF24_LL_CRTL_OP_KEEPALIVE_RSP) {
 				/* Resets the counter */
-				peers[sockfd-1].keepalive = 1;
+				peers[sockfd-1].keepalive_anchor = hal_time_ms();
 			}
 
 			/* If packet is disconnect request */
@@ -548,6 +548,9 @@ static int read_raw(int spi_fd, int sockfd)
 		/* If is Data */
 		case NRF24_PDU_LID_DATA_FRAG:
 		case NRF24_PDU_LID_DATA_END:
+			/*Resets keepalive anchor if packet is data*/
+			peers[sockfd-1].keepalive_anchor = hal_time_ms();
+
 			if (peers[sockfd-1].len_rx != 0)
 				break; /* Discard packet */
 
