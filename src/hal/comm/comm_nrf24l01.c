@@ -504,14 +504,13 @@ static int read_raw(int spi_fd, int sockfd)
 	 */
 	while ((ilen = phy_read(spi_fd, &p, NRF24_MTU)) > 0) {
 
-		/* Initiator/acceptor: reset anchor */
-		peers[sockfd-1].keepalive_anchor = hal_time_ms();
-
 		/* Check if is data or Control */
 		switch (ipdu->lid) {
 
 		/* If is Control */
 		case NRF24_PDU_LID_CONTROL:
+			/* Initiator/acceptor: reset anchor */
+			peers[sockfd-1].keepalive_anchor = hal_time_ms();
 			llctrl = (struct nrf24_ll_crtl_pdu *)ipdu->payload;
 			llkeepalive = (struct nrf24_ll_keepalive *)
 							llctrl->payload;
@@ -550,6 +549,12 @@ static int read_raw(int spi_fd, int sockfd)
 		/* If is Data */
 		case NRF24_PDU_LID_DATA_FRAG:
 		case NRF24_PDU_LID_DATA_END:
+			/* Initiator/acceptor: reset anchor */
+			peers[sockfd-1].keepalive_anchor = hal_time_ms();
+			/*If keepalive is active, resets counter*/
+			if (peers[sockfd-1].keepalive > 0)
+				peers[sockfd-1].keepalive = 1;
+
 			if (peers[sockfd-1].len_rx != 0)
 				break; /* Discard packet */
 
