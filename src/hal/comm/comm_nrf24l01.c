@@ -29,11 +29,12 @@
 #include "nrf24l01_ll.h"
 
 
-/*Transmission time (ms) values for each pipe. Note that every next
-* pipe there's a increase on the trans and retrans time. For more
-* on how these values were calculated, please refer to  nrf24l01 specs
-* or check out this very commit message.
-*/
+/*
+ * Transmission time (ms) values for each pipe. Note that every next
+ * pipe there's a increase on the trans and retrans time. For more
+ * on how these values were calculated, please refer to  nrf24l01 specs
+ * or check out this very commit message.
+ */
 #define PIPE1_WINDOW 15
 #define PIPE2_WINDOW 18
 #define PIPE3_WINDOW 22
@@ -48,8 +49,8 @@
 static uint8_t raw_timeout = 10;
 
 /*Retransmission start time and channel offset*/
-static uint8_t rt_stamp = 0;
-static uint8_t rt_offset = 0;
+static unsigned long rt_stamp = 1;
+static uint8_t rt_offset = 5;
 
 #define SET_BIT(val, idx)	((val) |= 1 << (idx))
 #define CLR_BIT(val, idx)	((val) &= ~(1 << (idx)))
@@ -162,31 +163,31 @@ enum {
 };
 
 /* Local functions */
+
 /*
-* Calculates data-channel time as a sum of each allocated pipe tr time.
-* This already accounts for startup time, time on air and other delays.
-* For more on this, please refer to nrf24l01 specs or to this commit's
-* log message.
-*/
-static uint8_t new_raw_time()
+ * Calculates data-channel time as a sum of each allocated pipe tr time.
+ * This already accounts for startup time, time on air and other delays.
+ * For more on this, please refer to nrf24l01 specs or to this commit's
+ * log message.
+ */
+static uint8_t new_raw_time(void)
 {
 	uint8_t new_time = 0;
 
 	if CHK_BIT(pipe_bitmask, 1)
-		new_time+= PIPE1_WINDOW;
+		new_time += PIPE1_WINDOW;
 	if CHK_BIT(pipe_bitmask, 2)
-		new_time+= PIPE2_WINDOW;
+		new_time += PIPE2_WINDOW;
 	if CHK_BIT(pipe_bitmask, 3)
-		new_time+= PIPE3_WINDOW;
+		new_time += PIPE3_WINDOW;
 	if CHK_BIT(pipe_bitmask, 4)
-		new_time+= PIPE4_WINDOW;
+		new_time += PIPE4_WINDOW;
 	if CHK_BIT(pipe_bitmask, 5)
-		new_time+= PIPE5_WINDOW;
+		new_time += PIPE5_WINDOW;
 
 	rt_offset = new_time/3;
-	if (rt_offset > 20){
+	if (rt_offset > 20)
 		rt_offset -= 5;
-	}
 
 	return new_time;
 }
@@ -719,11 +720,10 @@ static void running(void)
 		/* Start broadcast or scan? */
 		if (CHK_BIT(pipe_bitmask, 0)) {
 			/*Checks for RAW timeout and RTs offset time*/
-			if ( hal_timeout(hal_time_ms(), start, raw_timeout) > 0 &&
-				hal_timeout(hal_time_ms(), rt_stamp, (rt_offset) ) > 0)
-			{
+			if (hal_timeout(hal_time_ms(), start, raw_timeout) > 0
+				&& hal_timeout(hal_time_ms(), rt_stamp,
+				(rt_offset)) > 0)
 				state = START_MGMT;
-			}
 		}
 
 		/* Check if pipe is allocated */
