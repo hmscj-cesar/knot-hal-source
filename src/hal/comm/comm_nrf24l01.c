@@ -724,11 +724,16 @@ static void running(void)
 
 		/* Start broadcast or scan? */
 		if (CHK_BIT(pipe_bitmask, 0)) {
-			/*Checks for RAW timeout and RTs offset time*/
-			if (hal_timeout(hal_time_ms(), start, raw_timeout) > 0
-				&& hal_timeout(hal_time_ms(), rt_stamp,
-				(rt_offset)) > 0)
-				state = START_MGMT;
+
+			/* If all peers are connected, remains on data channel*/
+			if (pipe_bitmask != 0b00111111)
+			{
+				/*Checks for RAW timeout and RTs offset time*/
+				if (hal_timeout(hal_time_ms(), start, raw_timeout) > 0
+					&& hal_timeout(hal_time_ms(), rt_stamp,
+					(rt_offset)) > 0)
+					state = START_MGMT;
+			}
 		}
 
 		/* Check if pipe is allocated */
