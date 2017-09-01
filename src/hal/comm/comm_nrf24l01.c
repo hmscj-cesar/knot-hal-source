@@ -189,6 +189,7 @@ static uint8_t new_raw_time(void)
 	if (rt_offset > 20)
 		rt_offset -= 5;
 
+	printf("window is %d \n", new_time);
 	return new_time;
 }
 
@@ -693,7 +694,7 @@ static void running(void)
 		state = MGMT;
 		break;
 	case MGMT:
-
+		printf("MGMT\n");
 		read_mgmt(driverIndex);
 		write_mgmt(driverIndex);
 
@@ -718,10 +719,11 @@ static void running(void)
 		state = RAW;
 		break;
 	case RAW:
+		printf("RAW\n");
 
 		/* Start broadcast or scan? */
 		if (CHK_BIT(pipe_bitmask, 0)) {
-			
+
 			/*Checks for RAW timeout and RTs offset time*/
 			if (hal_timeout(hal_time_ms(), start, raw_timeout) > 0
 				&& hal_timeout(hal_time_ms(), rt_stamp,
