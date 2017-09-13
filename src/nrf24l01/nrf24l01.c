@@ -6,7 +6,7 @@
  * of the BSD license. See the LICENSE file for details.
  *
  */
-
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -43,6 +43,9 @@ static const pipe_reg_t pipe_reg[] = {
 #define TPD2STBY	5000
 #define TSTBY2A		130
 
+#define CHK_BIT(val, idx)      ((val) & (1 << (idx)))
+
+uint8_t reg;
 /*
  * Send to spi transfer the read command
  * return the value that was read in reg
@@ -170,6 +173,7 @@ int8_t nrf24l01_init(const char *dev, uint8_t tx_pwr)
 {
 	uint8_t	value;
 	int8_t spi_fd;
+	uint8_t reg;
 	/* example of dev = "/dev/spidev0.0" */
 	spi_fd = io_setup(dev);
 	if (spi_fd < 0)
@@ -254,6 +258,11 @@ int8_t nrf24l01_init(const char *dev, uint8_t tx_pwr)
 	command(spi_fd, NRF24_FLUSH_TX);
 	command(spi_fd, NRF24_FLUSH_RX);
 
+	reg = nrf24reg_read(spi_fd, NRF24_CONFIG);
+	if (!(CHK_BIT(reg, 3))){
+		printf("CRC OFF!!!\n");
+	}
+
 	return spi_fd;
 }
 
@@ -300,6 +309,9 @@ int8_t nrf24l01_set_channel(int8_t spi_fd, uint8_t ch)
 		nrf24reg_write(spi_fd, NRF24_RF_CH,
 			NRF24_CH(_CONSTRAIN(ch, NRF24_CH_MIN, max)));
 	}
+	if (!(CHK_BIT(reg, 3))){
+		printf("CRC OFF!!!\n");
+	}
 
 	return 0;
 }
@@ -334,6 +346,10 @@ int8_t nrf24l01_open_pipe(int8_t spi_fd, uint8_t pipe, uint8_t *pipe_addr,
 			nrf24reg_write(spi_fd, NRF24_EN_AA,
 					nrf24reg_read(spi_fd, NRF24_EN_AA)
 					| pipe_reg[pipe].enaa);
+	}
+
+	if (!(CHK_BIT(reg, 3))){
+		printf("CRC OFF!!!\n");
 	}
 
 	return 0;
@@ -430,6 +446,11 @@ int8_t nrf24l01_set_ptx(int8_t spi_fd, uint8_t pipe)
 	/* Enable and delay time to TSTBY2A timing */
 	enable();
 	delay_us(TSTBY2A);
+
+	if (!(CHK_BIT(reg, 3))){
+		printf("CRC OFF!!!\n");
+	}
+
 	return 0;
 }
 
