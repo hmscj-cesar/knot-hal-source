@@ -742,10 +742,13 @@ static void running(void)
 		} else {
 			/* Start broadcast or scan? */
 			if (CHK_BIT(pipe_bitmask, 0)) {
-				/*Checks for RAW timeout and RTs offset time*/
-				if (hal_timeout(hal_time_ms(), start, raw_timeout) > 0 &&
-				    hal_timeout(hal_time_ms(), rt_stamp, (rt_offset)) > 0)
-					state = START_MGMT;
+				/*Only switch to MGMT if an pipe is free*/
+				if (pipe_bitmask < 0b00111111){
+					/*Checks for RAW timeout and RTs offset time*/
+					if (hal_timeout(hal_time_ms(), start, raw_timeout) > 0 &&
+					    hal_timeout(hal_time_ms(), rt_stamp, (rt_offset)) > 0)
+						state = START_MGMT;
+				}
 			}
 		}
 
