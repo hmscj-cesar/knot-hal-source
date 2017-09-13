@@ -285,10 +285,15 @@ static int check_keepalive(int spi_fd, int sockfd)
 
 	peers[sockfd-1].keepalive++;
 
-	/* Sends keepalive packet */
-	return write_keepalive(spi_fd, sockfd,
-			      NRF24_LL_CRTL_OP_KEEPALIVE_REQ,
-			      peers[sockfd-1].mac, mac_local);
+	if (CONNECTION_COUNTER > 1){
+	/* Sends keepalive packet if is GW*/
+		return write_keepalive(spi_fd, sockfd,
+				      NRF24_LL_CRTL_OP_KEEPALIVE_REQ,
+				      peers[sockfd-1].mac, mac_local);
+	} else {
+		/* If is thing, does nothing*/
+		return 0;
+	}
 }
 
 static int write_mgmt(int spi_fd)
