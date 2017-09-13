@@ -493,6 +493,7 @@ static int read_raw(int spi_fd, int sockfd)
 	struct nrf24_ll_crtl_pdu *llctrl;
 	size_t plen;
 	ssize_t ilen;
+	uint32_t prev_anchor;
 
 	p.pipe = sockfd;
 	p.payload[0] = 0;
@@ -501,6 +502,9 @@ static int read_raw(int spi_fd, int sockfd)
 	 * on success, the number of bytes read is returned
 	 */
 	while ((ilen = phy_read(spi_fd, &p, NRF24_MTU)) > 0) {
+
+		/* Holds previous keepalive anchor*/
+		prev_anchor = peers[sockfd-1].keepalive_anchor;
 
 		/* Initiator/acceptor: reset anchor */
 		peers[sockfd-1].keepalive_anchor = hal_time_ms();
@@ -520,10 +524,14 @@ static int read_raw(int spi_fd, int sockfd)
 				peers[sockfd-1].mac.address.uint64 &&
 				llkeepalive->dst_addr.address.uint64 ==
 				mac_local.address.uint64) {
-				write_keepalive(spi_fd, sockfd,
+				/* Sends keepalive_resp only after send time*/
+				if (hal_timeout(prev_anchor, peers[sockfd-1].keepalive_anchor,
+					 NRF24_KEEPALIVE_SEND_MS) > 0)
+					write_keepalive(spi_fd, sockfd,
 					NRF24_LL_CRTL_OP_KEEPALIVE_RSP,
 					peers[sockfd-1].mac,
 					mac_local);
+
 				/* Acceptor: reset the counter */
 				peers[sockfd-1].keepalive = 1;
 
