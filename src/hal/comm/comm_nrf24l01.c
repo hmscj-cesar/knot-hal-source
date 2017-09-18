@@ -15,6 +15,7 @@
 #ifdef ARDUINO
 #include "hal/avr_errno.h"
 #include "hal/avr_unistd.h"
+#include "hal/avr_log.h"
 #else
 #include "hal/linux_log.h"
 #include <errno.h>
@@ -238,11 +239,11 @@ static uint16_t get_checksum(void *object, size_t size)
 {
 	uint8_t *byte;
 	uint16_t checksum = 0;
-	for ( byte = object; size--; byte++)
-		{
+	for (byte = object; size--; byte++) {
 		checksum+=*byte;
 		}
-		return checksum % 256;
+
+	return checksum % 256;
 }
 
 static inline int alloc_pipe(void)
@@ -406,20 +407,26 @@ static int read_mgmt(int spi_fd)
 	switch (ipdu->type) {
 	/* If is a presente type */
 	case NRF24_PDU_TYPE_PRESENCE:
-
+		printf("Packet is presence!\n");
 		if (ilen < (ssize_t) (sizeof(struct nrf24_ll_mgmt_pdu) +
-					sizeof(struct nrf24_ll_presence)))
+					sizeof(struct nrf24_ll_presence))){
+			printf("Presence size invalid! Got %d, expected to be at least %d\n", 
+				(int)ilen,(int) (sizeof(struct nrf24_ll_mgmt_pdu) + sizeof(struct nrf24_ll_presence)));
 			return -EINVAL;
-
+		}
 		/* Event presence structure */
 		mgmtev_bcast = (struct mgmt_evt_nrf24_bcast_presence *)mgmtev_hdr->payload;
 		/* Presence structure */
 		llp = (struct nrf24_ll_presence *) ipdu->payload;
 
-		/*Checksum*/
-		if (llp->checksum != 0 - (get_checksum((llp), (sizeof(*llp)+
-			ilen - sizeof(*llp) - sizeof(*ipdu)))))
+		printf("Size:%d \n CHECKSUM: %d\nNATIVE_CHECKSUM: %d\n", 
+			(int)(ilen - sizeof(*ipdu)),llp->checksum, 
+			get_checksum((llp+2), (ilen - 2 - sizeof(*ipdu))));
+
+		/*Sum of bytes and checksum must be equals 0*/
+		if (llp->checksum + get_checksum((llp+2), (ilen - 2 - sizeof(*ipdu))) != 0 ){
 			return -EINVAL;
+		}
 
 		/* Header type is a broadcast presence */
 		mgmtev_hdr->opcode = MGMT_EVT_NRF24_BCAST_PRESENCE;
@@ -731,8 +738,11 @@ static void presence_connect(int spi_fd)
 		len += nameLen;
 
 		/*Fill-up checksum*/
-		llp->checksum = 0 - get_checksum((llp), (sizeof(*llp)+nameLen));
-
+		llp->checksum = 0 - get_checksum((llp+2), (sizeof(llp)+nameLen-2));
+		#ifdef ARDUINO
+		hal_log_int(sizeof(*llp)+nameLen);
+		hal_log_int(get_checksum((llp+2), (sizeof(*llp)+nameLen-2)));
+		#endif
 		phy_write(spi_fd, &p, len);
 
 		/* Init time */
