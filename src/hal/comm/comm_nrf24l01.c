@@ -770,10 +770,19 @@ static void running(void)
 		if (listen)
 			presence_connect(driverIndex);
 
-		/* Peers connected? */
-		if (pipe_bitmask & PIPE_RAW_BITMASK) {
-			if (hal_timeout(hal_time_ms(), start, MGMT_TIMEOUT) > 0)
+		/* Device is Thing*/
+		if (CONNECTION_COUNTER == 1){
+			/* Only switch to MGMT if loses connection*/
+			if ((CHK_BIT(pipe_bitmask, 1)))
 				state = START_RAW;
+		
+		/* Device is Gateway*/
+		}else{
+			/* Peers connected? */
+			if (pipe_bitmask & PIPE_RAW_BITMASK) {
+				if (hal_timeout(hal_time_ms(), start, MGMT_TIMEOUT) > 0)
+					state = START_RAW;
+			}
 		}
 		break;
 
