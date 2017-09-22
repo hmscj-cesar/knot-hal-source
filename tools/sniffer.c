@@ -170,21 +170,18 @@ static int sniffer_start(void)
 
 	/* Sniffer in broadcast channel*/
 	channel = CHANNEL_MGMT;
-	phy_ioctl(cli_fd, NRF24_CMD_SET_CHANNEL, &channel);
+	p.pipe = 0;
 	adrrp.pipe = 0;
 	adrrp.ack = false;
+	phy_ioctl(cli_fd, NRF24_CMD_SET_CHANNEL, &channel);
 	memcpy(adrrp.aa, mgmt_aa, sizeof(adrrp.aa));
 	phy_ioctl(cli_fd, NRF24_CMD_SET_PIPE, &adrrp);
+
 
 	/* Reference time */
 	gettimeofday(&reftm, NULL);
 
 	while (!quit) {
-
-		if (channel == CHANNEL_MGMT)
-			p.pipe = 0;
-		else
-			p.pipe = 1;
 
 		gettimeofday(&tm, NULL);
 
@@ -200,18 +197,21 @@ static int sniffer_start(void)
 			continue;
 
 		last_sec = tm.tv_sec;
+		sec = tm.tv_sec - reftm.tv_sec;
+		usec = tm.tv_usec - reftm.tv_usec;
 		if (tm.tv_usec < reftm.tv_usec) {
-			sec = tm.tv_sec - reftm.tv_sec - 1;
-			usec = tm.tv_usec + 1000000 - reftm.tv_usec;
-		} else {
-			sec = tm.tv_sec - reftm.tv_sec;
-			usec = tm.tv_usec - reftm.tv_usec;
-		}
+			sec--;
+			usec += 1000000;
+		} 
 
-		if (channel == CHANNEL_MGMT)
+		if (channel == CHANNEL_MGMT){
 			decode_mgmt(sec, usec, p.payload, plen);
-		else
+			p.pipe = 0;
+		}
+		else {
 			decode_raw(sec, usec, p.payload, plen);
+			p.pipe = 1;
+		}
 	}
 
 	return 0;
@@ -261,4 +261,3 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
-
