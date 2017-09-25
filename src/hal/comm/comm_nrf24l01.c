@@ -12,6 +12,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#define KNOT_DEBUG_ENABLED 1
 #ifdef ARDUINO
 #include "hal/avr_errno.h"
 #include "hal/avr_unistd.h"
@@ -50,7 +51,7 @@
 #define MGMT_TIMEOUT 10
 
 #define WINDOW_BCAST		5				/* ms */
-#define INTERVAL_BCAST		6				/* ms */
+#define INTERVAL_BCAST		20				/* ms */
 #define BURST_BCAST		(WINDOW_BCAST*1000)/10		/* 500 us */
 
 static uint8_t raw_timeout = 10;
@@ -627,77 +628,59 @@ static int read_raw(int spi_fd, struct nrf24_raw *peer)
 	return 0;
 }
 
-/*
- * This functions send presence packets during
- * windows_bcast time and go to standy by mode during
- * (interval_bcast - windows_bcast) time
- */
-static void presence_connect(int spi_fd)
+static bool mgmt_win(int spi_fd, unsigned long start)
 {
 	struct nrf24_io_pack p;
 	struct nrf24_ll_mgmt_pdu *opdu = (void *)p.payload;
 	struct nrf24_ll_presence *llp =
-				(struct nrf24_ll_presence *) opdu->payload;
+		(struct nrf24_ll_presence *) opdu->payload;
 	size_t len, nameLen;
-	static unsigned long start;
-	/* Start timeout */
-	static uint8_t state = PRESENCE;
-	static uint8_t previous_state = TIMEOUT_INTERVAL;
+	ssize_t rxlen;
+	uint32_t rxwin;
 
-	switch (state) {
-	case PRESENCE:
-		/* Send Presence */
-		if (mac_local.address.uint64 == 0)
+	p.pipe = 0;
+	opdu->type = NRF24_PDU_TYPE_PRESENCE;
+	/* Send the mac address and thing name */
+	llp->mac.address.uint64 = mac_local.address.uint64;
+
+	len = sizeof(*opdu) + sizeof(*llp);
+
+	/*
+	 * Checks if need to truncate the name
+	 * If header length + MAC length + name length is
+	 * greater than MGMT_SIZE, then only sends the remaining.
+	 * If not, sends the total name length.
+	 */
+	nameLen = (len + sizeof(THING_NAME) > MGMT_SIZE ?
+			MGMT_SIZE - len : sizeof(THING_NAME));
+
+	memcpy(llp->name, THING_NAME, nameLen);
+	/* Increments name length */
+	len += nameLen;
+
+	phy_write(spi_fd, &p, len);
+
+	/* Broadcast interval */
+	if (hal_timeout(hal_time_ms(), start, INTERVAL_BCAST))
+		return false;
+
+	rxwin = hal_time_ms();
+	while (1) {
+		rxlen = phy_read(spi_fd, &p, NRF24_MTU);
+		if (rxlen > 0) {
+			memcpy(peers[0].buffer_rx, p.payload, rxlen);
+			peers[0].len_rx = rxlen;
+
+			hal_log_int(rxlen);
+
+			return false;
+		}
+		if (hal_timeout(hal_time_ms(), rxwin, 2))
 			break;
-
-		p.pipe = 0;
-		opdu->type = NRF24_PDU_TYPE_PRESENCE;
-		/* Send the mac address and thing name */
-		llp->mac.address.uint64 = mac_local.address.uint64;
-
-		len = sizeof(*opdu) + sizeof(*llp);
-
-		/*
-		 * Checks if need to truncate the name
-		 * If header length + MAC length + name length is
-		 * greater than MGMT_SIZE, then only sends the remaining.
-		 * If not, sends the total name length.
-		 */
-		nameLen = (len + sizeof(THING_NAME) > MGMT_SIZE ?
-				MGMT_SIZE - len : sizeof(THING_NAME));
-
-		memcpy(llp->name, THING_NAME, nameLen);
-		/* Increments name length */
-		len += nameLen;
-
-		phy_write(spi_fd, &p, len);
-
-		/* Init time */
-		if (previous_state == TIMEOUT_INTERVAL)
-			start = hal_time_ms();
-
-		state = BURST_WINDOW;
-		break;
-	case BURST_WINDOW:
-
-		if (hal_timeout(hal_time_ms(), start, WINDOW_BCAST) > 0)
-			state = STANDBY;
-		else if (hal_timeout(hal_time_us(), start*1000, BURST_BCAST) > 0)
-			state = PRESENCE;
-
-		previous_state = BURST_WINDOW;
-		break;
-	case STANDBY:
-		phy_ioctl(spi_fd, NRF24_CMD_SET_STANDBY, NULL);
-		state = TIMEOUT_INTERVAL;
-		break;
-	case TIMEOUT_INTERVAL:
-		if (hal_timeout(hal_time_ms(), start, INTERVAL_BCAST) > 0)
-			state = PRESENCE;
-
-		previous_state = TIMEOUT_INTERVAL;
-		break;
 	}
+
+
+	return true;
 }
 
 static void running(void)
@@ -721,7 +704,7 @@ static void running(void)
 
 		/* Broadcasting/acceptor */
 		if (listen)
-			presence_connect(driverIndex);
+			while (mgmt_win(driverIndex, start));
 
 		/* TODO: Switch to RAW if connected to at least one peer */
 		if (hal_timeout(hal_time_ms(), start, MGMT_TIMEOUT) > 0)
@@ -1050,7 +1033,7 @@ int hal_comm_connect(int sockfd, uint64_t *addr)
 	if (!peer)
 		return -ENOTCONN;
 
-	memcpy(ap.aa, &mac_local.address.b[3], 4);
+	memcpy(&ap.aa[1], &mac_local.address.b[3], 4);
 
 	/* Assign a new pipe (not zero) to manage the new peer */
 	if (peer->pipe == 0) {
