@@ -12,6 +12,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#define KNOT_DEBUG_ENABLED 1
 #ifdef ARDUINO
 #include "hal/avr_errno.h"
 #include "hal/avr_unistd.h"
@@ -47,13 +48,8 @@
 #define _MIN(a, b)		((a) < (b) ? (a) : (b))
 #define DATA_SIZE 128
 #define MGMT_SIZE 32
-#define MGMT_TIMEOUT 10
 
-#define WINDOW_BCAST		5				/* ms */
-#define INTERVAL_BCAST		6				/* ms */
-#define BURST_BCAST		(WINDOW_BCAST*1000)/10		/* 500 us */
-
-static uint8_t raw_timeout = 10;
+#define WINDOW_BCAST		200000				/* us */
 
 /*Retransmission start time and channel offset*/
 static uint8_t rt_stamp = 0;
@@ -154,8 +150,8 @@ static int driverIndex = -1;
  * 38 and 39). Suggested nRF24 channels are channels 22 (2422 MHz), 50
  * (2450 MHz), 74 (2474 MHz), 76 (2476 MHz) and 97 (2497 MHz).
  */
-static int channel_mgmt = 76;
-static int channel_raw = 22;
+static int channel_mgmt = 93;
+static int channel_raw = 27;
 
 enum {
 	START_MGMT,
@@ -163,41 +159,6 @@ enum {
 	START_RAW,
 	RAW
 };
-
-enum {
-	PRESENCE,
-	BURST_WINDOW,
-	STANDBY,
-	TIMEOUT_INTERVAL
-};
-
-/*
- * Calculates data-channel time as a sum of each allocated pipe tr time.
- * This already accounts for startup time, time on air and other delays.
- * For more on this, please refer to nrf24l01 specs or to this commit's
- * log message.
- */
-static uint8_t new_raw_time()
-{
-	uint8_t new_time = 0;
-
-	if CHK_BIT(pipe_bitmask, 1)
-		new_time+= PIPE1_WINDOW;
-	if CHK_BIT(pipe_bitmask, 2)
-		new_time+= PIPE2_WINDOW;
-	if CHK_BIT(pipe_bitmask, 3)
-		new_time+= PIPE3_WINDOW;
-	if CHK_BIT(pipe_bitmask, 4)
-		new_time+= PIPE4_WINDOW;
-	if CHK_BIT(pipe_bitmask, 5)
-		new_time+= PIPE5_WINDOW;
-
-	rt_offset = new_time/3;
-	if (rt_offset > 20)
-		rt_offset -= 5;
-
-	return new_time;
-}
 
 static int pipe_raw_alloc(void)
 {
@@ -343,6 +304,30 @@ static int check_keepalive(int spi_fd, struct nrf24_raw *peer)
 			      peer->mac, mac_local);
 }
 
+static int write_raw(int spi_fd, struct nrf24_raw *peer)
+{
+	int err;
+	struct nrf24_io_pack p;
+
+	/* If nothing to do */
+	if (peer->len_tx == 0)
+		return -EAGAIN;
+
+	/* Set pipe to be sent */
+	p.pipe = 0;
+	memcpy(p.payload, peer->buffer_tx, peer->len_tx);
+
+	err = phy_write(spi_fd, &p, peer->len_tx);
+	if (err < 0)
+		return err;
+
+	/* Reset len_tx */
+	peer->len_tx = 0;
+
+	return err;
+
+}
+
 static ssize_t read_channel_broadcast(const uint8_t *payload, size_t plen,
 						uint8_t *buffer, size_t blen)
 {
@@ -371,6 +356,9 @@ static ssize_t read_channel_broadcast(const uint8_t *payload, size_t plen,
 		memcpy(buffer, payload, plen);
 		olen = plen;
 
+		/* Might be connection attempt pending */
+		write_raw(driverIndex, &peers[0]);
+
 		break;
 	/* If is a connect request type */
 	case NRF24_PDU_TYPE_CONNECT_REQ:
@@ -396,30 +384,6 @@ static ssize_t read_channel_broadcast(const uint8_t *payload, size_t plen,
 
 	/* Returns the amount of bytes read */
 	return olen;
-}
-
-static int write_raw(int spi_fd, struct nrf24_raw *peer)
-{
-	int err;
-	struct nrf24_io_pack p;
-
-	/* If nothing to do */
-	if (peer->len_tx == 0)
-		return -EAGAIN;
-
-	/* Set pipe to be sent */
-	p.pipe = 0;
-	memcpy(p.payload, peer->buffer_tx, peer->len_tx);
-
-	err = phy_write(spi_fd, &p, peer->len_tx);
-	if (err < 0)
-		return err;
-
-	/* Reset len_tx */
-	peer->len_tx = 0;
-
-	return err;
-
 }
 
 static int write_raw_data(int spi_fd, struct nrf24_raw *peer)
@@ -627,77 +591,58 @@ static int read_raw(int spi_fd, struct nrf24_raw *peer)
 	return 0;
 }
 
-/*
- * This functions send presence packets during
- * windows_bcast time and go to standy by mode during
- * (interval_bcast - windows_bcast) time
- */
-static void presence_connect(int spi_fd)
+static bool mgmt_win(int spi_fd, unsigned long start)
 {
 	struct nrf24_io_pack p;
 	struct nrf24_ll_mgmt_pdu *opdu = (void *)p.payload;
 	struct nrf24_ll_presence *llp =
-				(struct nrf24_ll_presence *) opdu->payload;
+		(struct nrf24_ll_presence *) opdu->payload;
 	size_t len, nameLen;
-	static unsigned long start;
-	/* Start timeout */
-	static uint8_t state = PRESENCE;
-	static uint8_t previous_state = TIMEOUT_INTERVAL;
+	ssize_t rxlen;
+	uint8_t rxattempt;
 
-	switch (state) {
-	case PRESENCE:
-		/* Send Presence */
-		if (mac_local.address.uint64 == 0)
-			break;
+	p.pipe = 0;
+	opdu->type = NRF24_PDU_TYPE_PRESENCE;
+	/* Send the mac address and thing name */
+	llp->mac.address.uint64 = mac_local.address.uint64;
 
-		p.pipe = 0;
-		opdu->type = NRF24_PDU_TYPE_PRESENCE;
-		/* Send the mac address and thing name */
-		llp->mac.address.uint64 = mac_local.address.uint64;
+	len = sizeof(*opdu) + sizeof(*llp);
 
-		len = sizeof(*opdu) + sizeof(*llp);
+	/*
+	 * Checks if need to truncate the name
+	 * If header length + MAC length + name length is
+	 * greater than MGMT_SIZE, then only sends the remaining.
+	 * If not, sends the total name length.
+	 */
+	nameLen = (len + sizeof(THING_NAME) > MGMT_SIZE ?
+			MGMT_SIZE - len : sizeof(THING_NAME));
 
-		/*
-		 * Checks if need to truncate the name
-		 * If header length + MAC length + name length is
-		 * greater than MGMT_SIZE, then only sends the remaining.
-		 * If not, sends the total name length.
-		 */
-		nameLen = (len + sizeof(THING_NAME) > MGMT_SIZE ?
-				MGMT_SIZE - len : sizeof(THING_NAME));
+	memcpy(llp->name, THING_NAME, nameLen);
+	/* Increments name length */
+	len += nameLen;
 
-		memcpy(llp->name, THING_NAME, nameLen);
-		/* Increments name length */
-		len += nameLen;
+	phy_write(spi_fd, &p, len);
 
-		phy_write(spi_fd, &p, len);
+	/*
+	 * Define time window is not feasible: Trying read n times.
+	 * FIXME: Radio must stay for 512us at RX mode.
+	 */
+	for (rxattempt = 0; rxattempt < 70; rxattempt++) {
+		rxlen = phy_read(spi_fd, &p, NRF24_MTU);
+		if (rxlen <= 0)
+			continue;
 
-		/* Init time */
-		if (previous_state == TIMEOUT_INTERVAL)
-			start = hal_time_ms();
+		memcpy(peers[0].buffer_rx, p.payload, rxlen);
+		peers[0].len_rx = rxlen;
 
-		state = BURST_WINDOW;
-		break;
-	case BURST_WINDOW:
-
-		if (hal_timeout(hal_time_ms(), start, WINDOW_BCAST) > 0)
-			state = STANDBY;
-		else if (hal_timeout(hal_time_us(), start*1000, BURST_BCAST) > 0)
-			state = PRESENCE;
-
-		previous_state = BURST_WINDOW;
-		break;
-	case STANDBY:
-		phy_ioctl(spi_fd, NRF24_CMD_SET_STANDBY, NULL);
-		state = TIMEOUT_INTERVAL;
-		break;
-	case TIMEOUT_INTERVAL:
-		if (hal_timeout(hal_time_ms(), start, INTERVAL_BCAST) > 0)
-			state = PRESENCE;
-
-		previous_state = TIMEOUT_INTERVAL;
-		break;
+		return false;
 	}
+
+	/* Broadcast interval */
+	if (hal_timeout(hal_time_us(), start, WINDOW_BCAST))
+		return false;
+	else
+		return true;
 }
 
 static void running(void)
@@ -710,22 +655,27 @@ static void running(void)
 		/* Set channel to management channel */
 		phy_ioctl(driverIndex, NRF24_CMD_SET_CHANNEL, &channel_mgmt);
 		/* Start timeout */
-		start = hal_time_ms();
+		start = hal_time_us();
 		/* Go to next state */
 		state = MGMT;
 		break;
 	case MGMT:
+		/* Broadcasting/acceptor: blocking operation for WINDOW_BCAST */
+		if (listen) {
+			while (mgmt_win(driverIndex, start));
 
-		read_raw(driverIndex, &peers[0]);
-		write_raw(driverIndex, &peers[0]);
+			/* Connected to peer */
+			if (peers[1].pipe != 0)
+				state = START_RAW;
+		} else {
+			/* TODO: Switch to RAW if connected to at least one peer */
+			read_raw(driverIndex, &peers[0]);
+			write_raw(driverIndex, &peers[0]);
 
-		/* Broadcasting/acceptor */
-		if (listen)
-			presence_connect(driverIndex);
+			if (hal_timeout(hal_time_us(), start, 20000) > 0)
+				state = START_RAW;
 
-		/* TODO: Switch to RAW if connected to at least one peer */
-		if (hal_timeout(hal_time_ms(), start, MGMT_TIMEOUT) > 0)
-			state = START_RAW;
+		}
 
 		break;
 
@@ -733,7 +683,7 @@ static void running(void)
 		/* Set channel to data channel */
 		phy_ioctl(driverIndex, NRF24_CMD_SET_CHANNEL, &channel_raw);
 		/* Start timeout */
-		start = hal_time_ms();
+		start = hal_time_us();
 
 		/* Go to next state */
 		state = RAW;
@@ -747,9 +697,9 @@ static void running(void)
 		    hal_timeout(hal_time_ms(), rt_stamp, (rt_offset)) > 0)
 			state = START_MGMT;
 #else
-		if (hal_timeout(hal_time_ms(), start, raw_timeout))
+		/* 10 ms */
+		if (hal_timeout(hal_time_us(), start, 100000))
 			state = START_MGMT;
-
 #endif
 
 		read_raw(driverIndex, &peers[1]);
@@ -765,7 +715,6 @@ static void running(void)
 		if (check_keepalive(driverIndex, &peers[1]) == -ETIMEDOUT) {
 			/* TODO: Send disconnect packet to slave */
 			peer_unref(&peers[1]);
-			raw_timeout = new_raw_time();
 		}
 
 		break;
@@ -872,8 +821,6 @@ int hal_comm_close(int sockfd)
 	}
 
 	peer_unref(peer);
-
-	raw_timeout = new_raw_time();
 
 	return 0;
 }
@@ -1010,9 +957,6 @@ int hal_comm_accept(int sockfd, void *addr)
 	/* Open pipe */
 	phy_ioctl(driverIndex, NRF24_CMD_SET_PIPE, &p_addr);
 
-	/* Resize data channel time */
-	raw_timeout = new_raw_time();
-
 	/* Disable keep alive request */
 	peer_new->keepalive = 0;
 
@@ -1050,7 +994,7 @@ int hal_comm_connect(int sockfd, uint64_t *addr)
 	if (!peer)
 		return -ENOTCONN;
 
-	memcpy(ap.aa, &mac_local.address.b[3], 4);
+	memcpy(&ap.aa[1], &mac_local.address.b[3], 4);
 
 	/* Assign a new pipe (not zero) to manage the new peer */
 	if (peer->pipe == 0) {
