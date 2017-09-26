@@ -50,6 +50,8 @@
 
 #define PIPE_BROADCAST NRF24_PIPE0_ADDR
 
+static const uint8_t  broadcast_addr[5] = {0x8D, 0xD9, 0xBE, 0x96, 0xDE};
+
 #define _CONSTRAIN(x, l, h)	((x) < (l) ? (l) : ((x) > (h) ? (h) : (x)))
 #define _MIN(a, b)		((a) < (b) ? (a) : (b))
 
@@ -66,7 +68,7 @@ int8_t nrf24l01_close_pipe(int8_t spi_fd, int8_t pipe);
 int8_t nrf24l01_set_ptx(int8_t spi_fd, uint8_t pipe);
 int8_t nrf24l01_ptx_data(int8_t spi_fd, void *pdata, uint16_t len);
 int8_t nrf24l01_ptx_wait_datasent(int8_t spi_fd);
-int8_t nrf24l01_set_prx(int8_t spi_fd, uint8_t *pipe0_addr);
+int8_t nrf24l01_set_prx(int8_t spi_fd);
 int8_t nrf24l01_prx_pipe_available(int8_t spi_fd);
 int8_t nrf24l01_prx_data(int8_t spi_fd, void *pdata, uint16_t len);
 int8_t nrf24l01_set_standby(int8_t spi_fd);

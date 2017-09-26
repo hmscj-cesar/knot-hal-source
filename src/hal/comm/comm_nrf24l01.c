@@ -671,7 +671,6 @@ static bool mgmt_win(int spi_fd, unsigned long start)
 			memcpy(peers[0].buffer_rx, p.payload, rxlen);
 			peers[0].len_rx = rxlen;
 
-			hal_log_int(rxlen);
 
 			return false;
 		}
