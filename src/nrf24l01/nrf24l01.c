@@ -126,24 +126,36 @@ static void set_address_pipe(int8_t spi_fd, uint8_t reg, uint8_t *pipe_addr)
 /* Get address of pipe */
 static uint8_t *get_address_pipe(int8_t spi_fd, uint8_t pipe)
 {
-	uint16_t len;
-	static uint8_t pipe_addr[8];
+	static uint8_t pipe_addr[5];
 
-	len = NRF24_AW_RD(nrf24reg_read(spi_fd, NRF24_SETUP_AW));
-
+	/* Updates Address from SPI to pipe_reg[pipe] */
 	switch (pipe_reg[pipe].rx_addr) {
 	case NRF24_TX_ADDR:
-	case NRF24_RX_ADDR_P0:
-	case NRF24_RX_ADDR_P1:
+		nrf24data_read(spi_fd, NRF24_TX_ADDR, pipe_addr, 5);
 		break;
-
+	case NRF24_RX_ADDR_P0:
+		nrf24data_read(spi_fd, NRF24_RX_ADDR_P0, pipe_addr, 5);
+		break;
+	case NRF24_RX_ADDR_P1:
+		nrf24data_read(spi_fd, NRF24_RX_ADDR_P1, pipe_addr, 5);
+		break;
+	#ifndef ARDUINO
+	case NRF24_RX_ADDR_P2:
+		nrf24data_read(spi_fd, NRF24_RX_ADDR_P2, pipe_addr, 5);
+		break;
+	case NRF24_RX_ADDR_P3:
+		nrf24data_read(spi_fd, NRF24_RX_ADDR_P3, pipe_addr, 5);
+		break;
+	case NRF24_RX_ADDR_P4:
+		nrf24data_read(spi_fd, NRF24_RX_ADDR_P4, pipe_addr, 5);
+		break;
+	case NRF24_RX_ADDR_P5:
+		nrf24data_read(spi_fd, NRF24_RX_ADDR_P5, pipe_addr, 5);
+		break;
+	#endif
 	default:
-		nrf24data_read(spi_fd, NRF24_RX_ADDR_P1, pipe_addr, len);
-		len = DATA_SIZE;
 		break;
 	}
-
-	nrf24data_read(spi_fd, pipe_reg[pipe].rx_addr, pipe_addr, len);
 
 	return pipe_addr;
 }
@@ -378,6 +390,7 @@ int8_t nrf24l01_close_pipe(int8_t spi_fd, int8_t pipe)
  */
 int8_t nrf24l01_set_ptx(int8_t spi_fd, uint8_t pipe)
 {
+	uint8_t *p_addr;
 	/* Out of range? */
 	if (pipe > NRF24_PIPE_MAX)
 		return -1;
@@ -400,10 +413,9 @@ int8_t nrf24l01_set_ptx(int8_t spi_fd, uint8_t pipe)
 				nrf24reg_read(spi_fd, NRF24_EN_AA)
 				& ~NRF24_AA_P0);
 
-	set_address_pipe(spi_fd, NRF24_RX_ADDR_P0,
-			get_address_pipe(spi_fd, pipe));
-	set_address_pipe(spi_fd, NRF24_TX_ADDR,
-			get_address_pipe(spi_fd, pipe));
+	p_addr = get_address_pipe(spi_fd, pipe);
+	set_address_pipe(spi_fd, NRF24_RX_ADDR_P0, p_addr);
+	set_address_pipe(spi_fd, NRF24_TX_ADDR, p_addr);
 	#if (NRF24_ARC != NRF24_ARC_DISABLE)
 		/*
 		* Set ARC and ARD by pipe index to different
