@@ -106,37 +106,37 @@ static void set_address_pipe(int8_t spi_fd, uint8_t reg, uint8_t *pipe_addr)
 	uint8_t addr[5];
 
 	/* memcpy is necessary because nrf24data_write cleans value after send */
-	memcpy(addr, pipe_addr, sizeof(addr));
+	memcpy(addr, pipe_addr, 5);
 
 	switch (reg) {
 	case NRF24_TX_ADDR:
-		nrf24data_write(spi_fd, NRF24_TX_ADDR, &addr, sizeof(addr));
+		nrf24data_write(spi_fd, NRF24_TX_ADDR, &addr, 5);
 		break;
 	case NRF24_RX_ADDR_P0:
-		nrf24data_write(spi_fd, NRF24_RX_ADDR_P0, &addr, sizeof(addr));
+		nrf24data_write(spi_fd, NRF24_RX_ADDR_P0, &addr, 5);
 		break;
 	case NRF24_RX_ADDR_P1:
-		nrf24data_write(spi_fd, NRF24_RX_ADDR_P1, &addr, sizeof(addr));
+		nrf24data_write(spi_fd, NRF24_RX_ADDR_P1, &addr, 5);
 		break;
 	#ifndef ARDUINO
 	case NRF24_RX_ADDR_P2:
-		nrf24data_write(spi_fd, NRF24_RX_ADDR_P2, &addr, sizeof(addr));
+		nrf24data_write(spi_fd, NRF24_RX_ADDR_P2, &addr, 5);
 		break;
 	case NRF24_RX_ADDR_P3:
-		nrf24data_write(spi_fd, NRF24_RX_ADDR_P3, &addr, sizeof(addr));
+		nrf24data_write(spi_fd, NRF24_RX_ADDR_P3, &addr, 5);
 		break;
 	case NRF24_RX_ADDR_P4:
-		nrf24data_write(spi_fd, NRF24_RX_ADDR_P4, &addr, sizeof(addr));
+		nrf24data_write(spi_fd, NRF24_RX_ADDR_P4, &addr, 5);
 		break;
 	case NRF24_RX_ADDR_P5:
-		nrf24data_write(spi_fd, NRF24_RX_ADDR_P5, &addr, sizeof(addr));
+		nrf24data_write(spi_fd, NRF24_RX_ADDR_P5, &addr, 5);
 		break;
 	#endif
 	default:
+	/* To-Do: Handle Wrong Register to Write */
 		break;
 	}
 
-	nrf24data_write(spi_fd, reg, &addr, sizeof(addr));
 }
 
 /* Get address of pipe */
