@@ -150,8 +150,8 @@ static int driverIndex = -1;
  * 38 and 39). Suggested nRF24 channels are channels 22 (2422 MHz), 50
  * (2450 MHz), 74 (2474 MHz), 76 (2476 MHz) and 97 (2497 MHz).
  */
-static int channel_mgmt = 93;
-static int channel_raw = 27;
+static int channel_mgmt = 97;
+static int channel_raw = 50;
 
 enum {
 	START_MGMT,
