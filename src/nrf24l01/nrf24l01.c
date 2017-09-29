@@ -286,19 +286,18 @@ int8_t nrf24l01_set_channel(int8_t spi_fd, uint8_t ch)
 int8_t nrf24l01_open_pipe(int8_t spi_fd, uint8_t pipe, uint8_t *pipe_addr,
 				bool ack)
 {
-	pipe_reg_t rpipe;
 
 	/* Out of range? */
 	if (pipe > NRF24_PIPE_MAX)
 		return -1;
 
-	memcpy(&rpipe, &pipe_reg[pipe], sizeof(rpipe));
-
 	/* Enable pipe */
-	if (!(nrf24reg_read(spi_fd, NRF24_EN_RXADDR) & rpipe.en_rxaddr)) {
-		set_address_pipe(spi_fd, rpipe.rx_addr, pipe_addr);
+	if (!(nrf24reg_read(spi_fd, NRF24_EN_RXADDR) &
+		 pipe_reg[pipe].en_rxaddr)) {
+		set_address_pipe(spi_fd, pipe_reg[pipe].rx_addr, pipe_addr);
 		nrf24reg_write(spi_fd, NRF24_EN_RXADDR,
-			nrf24reg_read(spi_fd, NRF24_EN_RXADDR) | rpipe.en_rxaddr);
+			nrf24reg_read(spi_fd, NRF24_EN_RXADDR) | 
+			pipe_reg[pipe].en_rxaddr);
 
 		if (!ack)
 			nrf24reg_write(spi_fd, NRF24_EN_AA,
@@ -320,26 +319,23 @@ int8_t nrf24l01_open_pipe(int8_t spi_fd, uint8_t pipe, uint8_t *pipe_addr,
 
 int8_t nrf24l01_close_pipe(int8_t spi_fd, int8_t pipe)
 {
-	pipe_reg_t rpipe;
 
 	/* Out of range? */
 	if (pipe < NRF24_PIPE_MIN || pipe > NRF24_PIPE_MAX)
 		return -1;
 
-	memcpy(&rpipe, &pipe_reg[pipe], sizeof(rpipe));
-
-	if (nrf24reg_read(spi_fd, NRF24_EN_RXADDR) & rpipe.en_rxaddr) {
+	if (nrf24reg_read(spi_fd, NRF24_EN_RXADDR) & pipe_reg[pipe].en_rxaddr) {
 		/*
 		 * The data pipes are enabled with the bits in the EN_RXADDR
 		 * Disable the EN_RXADDR for this pipe
 		 */
 		nrf24reg_write(spi_fd, NRF24_EN_RXADDR,
 				nrf24reg_read(spi_fd, NRF24_EN_RXADDR)
-				& ~rpipe.en_rxaddr);
+				& ~pipe_reg[pipe].en_rxaddr);
 		/* Disable auto ack in this pipe */
 		nrf24reg_write(spi_fd, NRF24_EN_AA,
 				nrf24reg_read(spi_fd, NRF24_EN_AA)
-				& ~rpipe.enaa);
+				& ~pipe_reg[pipe].enaa);
 	}
 
 	return 0;

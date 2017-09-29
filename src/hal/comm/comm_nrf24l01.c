@@ -278,7 +278,7 @@ static int write_keepalive(int spi_fd, const struct nrf24_raw *peer,
 
 static int check_keepalive(int spi_fd, struct nrf24_raw *peer)
 {
-	struct nrf24_io_pack p;
+	//struct nrf24_io_pack p;
 	uint32_t time_ms = hal_time_ms();
 
 	/* Check if timeout occurred */
@@ -329,7 +329,7 @@ static int write_raw(int spi_fd, struct nrf24_raw *peer)
 static ssize_t read_channel_broadcast(const uint8_t *payload, size_t plen,
 						uint8_t *buffer, size_t blen)
 {
-	struct nrf24_io_pack p;
+	//struct nrf24_io_pack p;
 	struct nrf24_ll_mgmt_pdu *ipdu = (struct nrf24_ll_mgmt_pdu *) payload;
 	struct nrf24_ll_mgmt_connect *llc;
 	ssize_t olen;
