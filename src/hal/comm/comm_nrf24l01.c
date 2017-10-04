@@ -15,6 +15,7 @@
 #ifdef ARDUINO
 #include "hal/avr_errno.h"
 #include "hal/avr_unistd.h"
+#include "src/hal/sec/security_ino.h"
 #else
 #include <errno.h>
 #include <unistd.h>
