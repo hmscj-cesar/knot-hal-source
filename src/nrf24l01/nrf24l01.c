@@ -520,3 +520,20 @@ int8_t nrf24l01_prx_data(int8_t spi_fd, void *pdata, uint16_t len)
 
 	return (int8_t)rxlen;
 }
+
+int8_t nrf24l01_set_pipe_ack(int8_t spi_fd, uint8_t pipe, bool flag)
+{
+	if (pipe > NRF24_PIPE_MAX)
+		return -1;
+
+	if (flag)
+			nrf24reg_write(spi_fd, NRF24_EN_AA,
+					nrf24reg_read(spi_fd, NRF24_EN_AA)
+					| pipe_reg[pipe].enaa);
+		else
+			nrf24reg_write(spi_fd, NRF24_EN_AA,
+					nrf24reg_read(spi_fd, NRF24_EN_AA)
+					& ~pipe_reg[pipe].enaa);
+
+		return 0;
+}

@@ -70,6 +70,7 @@ int8_t nrf24l01_set_prx(int8_t spi_fd);
 int8_t nrf24l01_prx_pipe_available(int8_t spi_fd);
 int8_t nrf24l01_prx_data(int8_t spi_fd, void *pdata, uint16_t len);
 int8_t nrf24l01_set_standby(int8_t spi_fd);
+int8_t nrf24l01_set_pipe_ack(int8_t spi_fd, uint8_t pipe, bool flag);
 
 #ifdef __cplusplus
 } // extern "C"
