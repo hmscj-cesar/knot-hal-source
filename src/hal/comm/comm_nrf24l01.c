@@ -753,6 +753,7 @@ static void running(void)
 {
 	struct mgmt_nrf24_header *mgmtev_hdr;
 	struct mgmt_evt_nrf24_disconnected *mgmtev_dc;
+	struct pipe_ack pipeack;
 	static int state = START_MGMT;
 	/* Index peers */
 	static int sockIndex = 1;
@@ -760,8 +761,11 @@ static void running(void)
 
 	switch (state) {
 	case START_MGMT:
+		pipeack.pipe = 0;
+		pipeack.ack = false;
 		/* Set channel to management channel */
 		phy_ioctl(driverIndex, NRF24_CMD_SET_CHANNEL, &channel_mgmt);
+		phy_ioctl(driverIndex, NRF24_CMD_SET_ACK, &pipeack);
 		/* Start timeout */
 		start = hal_time_ms();
 		/* Go to next state */
@@ -784,8 +788,11 @@ static void running(void)
 		break;
 
 	case START_RAW:
+		pipeack.pipe = 0;
+		pipeack.ack = true;
 		/* Set channel to data channel */
 		phy_ioctl(driverIndex, NRF24_CMD_SET_CHANNEL, &channel_raw);
+		phy_ioctl(driverIndex, NRF24_CMD_SET_ACK, &pipeack);
 		/* Start timeout */
 		start = hal_time_ms();
 
