@@ -18,6 +18,7 @@ struct nrf24_io_pack {
 enum nrf24_cmds {
 				NRF24_CMD_SET_PIPE,
 				NRF24_CMD_RESET_PIPE,
+				NRF24_CMD_SET_ACK,
 				NRF24_CMD_SET_CHANNEL,
 				NRF24_CMD_GET_CHANNEL,
 				NRF24_CMD_SET_ADDRESS_PIPE,
@@ -30,4 +31,10 @@ struct addr_pipe {
 	uint8_t pipe;
 	bool ack;
 	uint8_t aa[5];
+};
+
+/* Used to set Auto-Acknowledgment */
+struct pipe_ack {
+	uint8_t pipe;
+	bool ack;
 };
