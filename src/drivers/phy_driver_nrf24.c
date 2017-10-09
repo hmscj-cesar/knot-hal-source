@@ -126,7 +126,7 @@ static int nrf24l01_ioctl(int spi_fd, int cmd, void *arg)
 	case NRF24_CMD_SET_ACK:
 		pipeack = (struct pipe_ack *) arg;
 
-		err = nrf24l01_set_pipe_ack(spi_fd, pipeack->pipe
+		err = nrf24l01_set_pipe_ack(spi_fd, pipeack->pipe,
 								pipeack->ack);
 		break;
 	case NRF24_CMD_SET_STANDBY:

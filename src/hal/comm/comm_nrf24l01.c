@@ -635,13 +635,17 @@ static bool mgmt_win(int spi_fd, unsigned long start)
 
 static void running(void)
 {
+	struct pipe_ack pipeack;
 	static int state = START_MGMT;
 	static unsigned long start;
 
 	switch (state) {
 	case START_MGMT:
+		pipeack.pipe = 0;
+		pipeack.ack = false;
 		/* Set channel to management channel */
 		phy_ioctl(driverIndex, NRF24_CMD_SET_CHANNEL, &channel_mgmt);
+		phy_ioctl(driverIndex, NRF24_CMD_SET_ACK, &pipeack);
 		/* Start timeout */
 		start = hal_time_us();
 		/* Go to next state */
@@ -674,8 +678,11 @@ static void running(void)
 		break;
 
 	case START_RAW:
+		pipeack.pipe = 0;
+		pipeack.ack = true;
 		/* Set channel to data channel */
 		phy_ioctl(driverIndex, NRF24_CMD_SET_CHANNEL, &channel_raw);
+		phy_ioctl(driverIndex, NRF24_CMD_SET_ACK, &pipeack);
 		/* Start timeout */
 		start = hal_time_us();
 
