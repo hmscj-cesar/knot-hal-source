@@ -15,6 +15,7 @@
 #ifdef ARDUINO
 #include "hal/avr_errno.h"
 #include "hal/avr_unistd.h"
+#include "hal/avr_log.h"
 #else
 #include "hal/linux_log.h"
 #include <errno.h>
@@ -391,7 +392,9 @@ static int read_mgmt(int spi_fd)
 
 	/* Event header structure */
 	mgmtev_hdr = (struct mgmt_nrf24_header *) mgmt.buffer_rx;
-
+	#ifdef ARDUINO
+		void _hal_log_str("Packet MGMT");
+	#endif
 	switch (ipdu->type) {
 	/* If is a presente type */
 	case NRF24_PDU_TYPE_PRESENCE:
@@ -438,9 +441,17 @@ static int read_mgmt(int spi_fd)
 	/* If is a connect request type */
 	case NRF24_PDU_TYPE_CONNECT_REQ:
 
+		#ifdef ARDUINO
+		void _hal_log_str("CONNECT REQUEST");
+		#endif
+
 		if (ilen != (sizeof(struct nrf24_ll_mgmt_pdu) +
-			     sizeof(struct nrf24_ll_mgmt_connect)))
+			     sizeof(struct nrf24_ll_mgmt_connect))){
+			#ifdef ARDUINO
+			void _hal_log_str("ERROR: BAD LEN");
+			#endif
 			return -EINVAL;
+		}
 
 		/* Event connect structure */
 		mgmtev_cn = (struct mgmt_evt_nrf24_connected *)mgmtev_hdr->payload;
@@ -761,6 +772,9 @@ static void running(void)
 
 	switch (state) {
 	case START_MGMT:
+		#ifdef ARDUINO
+		void _hal_log_str("mgmt channel");
+		#endif
 		pipeack.pipe = 0;
 		pipeack.ack = false;
 		/* Set channel to management channel */
@@ -788,6 +802,9 @@ static void running(void)
 		break;
 
 	case START_RAW:
+		#ifdef ARDUINO
+		void _hal_log_str("raw channel");
+		#endif
 		pipeack.pipe = 0;
 		pipeack.ack = true;
 		/* Set channel to data channel */
