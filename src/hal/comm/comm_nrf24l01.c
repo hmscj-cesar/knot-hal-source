@@ -43,6 +43,8 @@
 #define PIPE4_WINDOW 26
 #define PIPE5_WINDOW 30
 
+#define KNOT_DEBUG_ENABLED	1
+
 
 #define _MIN(a, b)		((a) < (b) ? (a) : (b))
 #define DATA_SIZE 128

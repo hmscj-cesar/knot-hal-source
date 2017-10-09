@@ -43,7 +43,6 @@ static const pipe_reg_t pipe_reg[] = {
 /* Time delay in microseconds (us) */
 #define TPD2STBY	5000
 #define TSTBY2A		130
-#define KNOT_DEBUG_ENABLED	1
 
 /*
  * Send to spi transfer the read command
