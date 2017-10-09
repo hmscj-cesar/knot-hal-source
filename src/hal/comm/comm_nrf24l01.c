@@ -395,7 +395,7 @@ static int read_mgmt(int spi_fd)
 	/* Event header structure */
 	mgmtev_hdr = (struct mgmt_nrf24_header *) mgmt.buffer_rx;
 	#ifdef ARDUINO
-		void _hal_log_str("Packet MGMT");
+		hal_log_dbg("Packet MGMT");
 	#endif
 	switch (ipdu->type) {
 	/* If is a presente type */
@@ -444,13 +444,13 @@ static int read_mgmt(int spi_fd)
 	case NRF24_PDU_TYPE_CONNECT_REQ:
 
 		#ifdef ARDUINO
-		void _hal_log_str("CONNECT REQUEST");
+		hal_log_dbg("CONNECT REQUEST");
 		#endif
 
 		if (ilen != (sizeof(struct nrf24_ll_mgmt_pdu) +
 			     sizeof(struct nrf24_ll_mgmt_connect))){
 			#ifdef ARDUINO
-			void _hal_log_str("ERROR: BAD LEN");
+			hal_log_dbg("ERROR: BAD LEN");
 			#endif
 			return -EINVAL;
 		}
@@ -775,7 +775,7 @@ static void running(void)
 	switch (state) {
 	case START_MGMT:
 		#ifdef ARDUINO
-		void _hal_log_str("mgmt channel");
+		hal_log_dbg("mgmt channel");
 		#endif
 		pipeack.pipe = 0;
 		pipeack.ack = false;
@@ -805,7 +805,7 @@ static void running(void)
 
 	case START_RAW:
 		#ifdef ARDUINO
-		void _hal_log_str("raw channel");
+		hal_log_dbg("raw channel");
 		#endif
 		pipeack.pipe = 0;
 		pipeack.ack = true;
