@@ -56,7 +56,7 @@ static ssize_t nrf24l01_write(int spi_fd, const void *buffer, size_t len)
 	#ifdef ARDUINO
 	/*buffer to hold address from flash*/
 	uint8_t bdc_address[5];
-	memcpy_P(&bdc_address, broadcast_addr, 5);
+	memcpy_P(bdc_address, broadcast_addr, 5);
 	nrf24l01_set_prx(spi_fd, bdc_address);
 	#else
 	nrf24l01_set_prx(spi_fd, (uint8_t*)broadcast_addr);
