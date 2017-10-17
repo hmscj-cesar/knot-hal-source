@@ -20,7 +20,6 @@
 #include "nrf24l01_io.h"
 #include "hal/time.h"
 
-
 /*
  * First run the tool "./rpiecho -m server" to
  * enter in server mode and then, in another rpi,
@@ -56,6 +55,7 @@ int main(int argc, char *argv[])
 		memcpy(buffer, MESSAGE, MESSAGE_SIZE);
 		status = nrf24l01_ptx_data(spi_fd, buffer, MESSAGE_SIZE);
 		nrf24l01_ptx_wait_datasent(spi_fd);
+		delay_us(2000);
 		printf("%d\n", status);
 	}
 
