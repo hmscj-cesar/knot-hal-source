@@ -55,9 +55,9 @@ int main(int argc, char *argv[])
 		printf("Status:");
 		memcpy(buffer, MESSAGE, MESSAGE_SIZE);
 		memcpy(buffer+MESSAGE_SIZE, &count, sizeof(int8_t));
-		status = nrf24l01_ptx_data(spi_fd, buffer, MESSAGE_SIZE);
+		status = nrf24l01_ptx_data(spi_fd, buffer, MESSAGE_SIZE+sizeof(int8_t));
 		nrf24l01_ptx_wait_datasent(spi_fd);
-		delay_us(200000);
+		delay_us(20000);
 		printf("%d\n", status);
 		count++;
 	}
