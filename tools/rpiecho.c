@@ -42,7 +42,7 @@ int8_t status;
 
 int main(int argc, char *argv[])
 {
-	int8_t count = 0;
+	uint8_t count = 0;
 	uint8_t spi_fd = io_setup(DEV);
 	nrf24l01_init(DEV, NRF24_PWR_0DBM);
 	nrf24l01_set_channel(spi_fd, NRF24_CHANNEL_DEFAULT);
@@ -53,13 +53,15 @@ int main(int argc, char *argv[])
 
 	while (1){
 		printf("Status:");
-		memcpy(buffer, MESSAGE, MESSAGE_SIZE);
-		memcpy(buffer+MESSAGE_SIZE, &count, sizeof(int8_t));
-		status = nrf24l01_ptx_data(spi_fd, buffer, MESSAGE_SIZE+sizeof(int8_t));
+		memcpy(buffer, &count, sizeof(uint8_t));
+		memcpy(buffer+1, MESSAGE, MESSAGE_SIZE);
+		status = nrf24l01_ptx_data(spi_fd, buffer, MESSAGE_SIZE+1);
 		nrf24l01_ptx_wait_datasent(spi_fd);
 		delay_us(20000);
 		printf("%d\n", status);
 		count++;
+		if (count == 250)
+			count = 0;
 	}
 
 	return 1;
