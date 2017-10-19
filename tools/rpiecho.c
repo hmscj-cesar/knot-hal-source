@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
 		nrf24l01_ptx_wait_datasent(spi_fd);
 		delay_us(200000);
 		printf("%d\n", status);
+		count++;
 	}
 
 	return 1;
