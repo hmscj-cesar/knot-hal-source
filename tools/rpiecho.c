@@ -27,7 +27,7 @@
  */
 
 
-#define MESSAGE "Gateway says hello!"
+#define MESSAGE "Message number "
 #define MESSAGE_SIZE sizeof(MESSAGE)
 
 #define NRF24_PWR_0DBM    0b11
@@ -42,6 +42,7 @@ int8_t status;
 
 int main(int argc, char *argv[])
 {
+	int8_t count = 0;
 	uint8_t spi_fd = io_setup(DEV);
 	nrf24l01_init(DEV, NRF24_PWR_0DBM);
 	nrf24l01_set_channel(spi_fd, NRF24_CHANNEL_DEFAULT);
@@ -53,6 +54,7 @@ int main(int argc, char *argv[])
 	while (1){
 		printf("Status:");
 		memcpy(buffer, MESSAGE, MESSAGE_SIZE);
+		memcpy(buffer+MESSAGE_SIZE, &count, sizeof(int8_t));
 		status = nrf24l01_ptx_data(spi_fd, buffer, MESSAGE_SIZE);
 		nrf24l01_ptx_wait_datasent(spi_fd);
 		delay_us(200000);
