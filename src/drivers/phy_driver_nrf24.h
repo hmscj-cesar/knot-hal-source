@@ -7,7 +7,12 @@
  *
  */
 
-#define NRF24_PAYLOAD_SIZE		32
+#include <nrf24l01_ll.h>
+#include <nrf24l01.h>
+#include <nrf24l01_io.h>
+
+#ifndef __PHY_DRIVER_NRF24_H__
+#define __PHY_DRIVER_NRF24_H__
 
 /* Used to read/write operations */
 struct nrf24_io_pack {
@@ -25,9 +30,17 @@ enum nrf24_cmds {
 				NRF24_CMD_SET_STANDBY,
 };
 
-/* Used to set pipe address*/
+/* Used to set pipe address */
 struct addr_pipe {
 	uint8_t pipe;
 	bool ack;
 	uint8_t aa[5];
 };
+
+/* Used to set channel */
+struct channel {
+	uint8_t value;
+	bool ack;
+};
+
+#endif	//#ifndef __PHY_DRIVER_NRF24_H__

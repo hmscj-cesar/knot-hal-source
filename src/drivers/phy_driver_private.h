@@ -11,6 +11,9 @@
 #include <Arduino.h>
 #endif
 
+#ifndef __PHY_DRIVER_PRIVATE_H__
+#define __PHY_DRIVER_PRIVATE_H__
+
  /**
  * struct phy_driver - driver abstraction for the physical layer
  * @name: driver name
@@ -39,3 +42,5 @@ struct phy_driver {
 };
 
 extern struct phy_driver nrf24l01;
+
+#endif //#ifndef __PHY_DRIVER_PRIVATE_H__
