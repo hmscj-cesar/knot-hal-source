@@ -7,6 +7,9 @@
  *
  */
 
+#ifndef __NRF24L01_LL__
+#define __NRF24L01_LL__
+
 #include "hal/nrf24.h"
 
 #define NRF24_MTU					32
@@ -130,3 +133,5 @@ struct nrf24_ll_disconnect {
 	struct nrf24_mac src_addr;	/* Source address */
 	struct nrf24_mac dst_addr;	/* Destination address */
 } __attribute__ ((packed));
+
+#endif		//__NRF24L01_LL__

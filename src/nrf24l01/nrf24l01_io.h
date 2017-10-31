@@ -6,6 +6,9 @@
  * of the BSD license. See the LICENSE file for details.
  *
  */
+#ifndef __NRF24L01_IO_H__
+#define __NRF24L01_IO_H__
+
 /* ---------------------------------------------
  * Register address map of nRF24L01(+)
 */
@@ -36,7 +39,7 @@
 #define NRF24_ST_TX_FULL				0b00000001
 #define NRF24_TX_FIFO_FULL			0b1
 /* Read TX FIFO full flag */
-#define ST_TX_STATUS(v)			((v) & NRF24_ST_TX_FULL)
+#define ST_TX_FULL(v)			((v) & NRF24_ST_TX_FULL)
 /*
  * Enable dynamic payload length (reset value: 0b00000000)
  * (requires EN_DLL in FEATURE and AA_Px in ENAA enabled)
@@ -70,6 +73,7 @@
 #define NRF24_EN_RXADDR_P2	0b00000100
 #define NRF24_EN_RXADDR_P1	0b00000010
 #define NRF24_EN_RXADDR_P0	0b00000001
+#define NRF24_EN_RXADDR_PIPE(p)	((NRF24_EN_RXADDR_P0 << p) & NRF24_EN_RXADDR_MASK)
 
 /* ---------------------------------------------
  * Command set for the nRF24L01(+) SPI
@@ -128,12 +132,12 @@
 #define NRF24_SETUP_AW				0x03
 #define NRF24_SETUP_AW_RST		0b00000011
 #define NRF24_SETUP_AW_MASK	0b00000011
-/* write: 0 <= b <= 5 valid values */
-#define NRF24_AW(b)	(b < 3 ? NRF24_AW_INVALID :\
-	(b & NRF24_SETUP_AW_MASK) - 2)
-/* read: 0 <= b <= 5 valid values */
-#define NRF24_AW_RD(b) (((b & NRF24_SETUP_AW_MASK) ?\
-	(b & NRF24_SETUP_AW_MASK) + 2 : NRF24_AW_INVALID))
+/* write either 3 <= b <= 5 valid values or 0 illegal */
+#define NRF24_AW(b)	((b < 3 || b > 5) ? NRF24_AW_INVALID :\
+	((b - 2) & NRF24_SETUP_AW_MASK))
+/* read either 3 <= b <= 5 valid values or 0 illegal */
+#define NRF24_AW_RD(b) ((b & NRF24_SETUP_AW_MASK) ?\
+	(b & NRF24_SETUP_AW_MASK) + 2 : NRF24_AW_INVALID)
 #define NRF24_AW_INVALID		0b00
 #define NRF24_AW_3BYTES		0b01
 #define NRF24_AW_4BYTES		0b10
@@ -204,25 +208,20 @@
 
 /* Receive address data pipe 0 (reset value: 0xe7e7e7e7e7) */
 #define NRF24_RX_ADDR_P0				0x0a
-#define NRF24_RX_ADDR_P0_RST	0xe7
 /* Receive address data pipe 1 (reset value: 0xc2c2c2c2c2) */
 #define NRF24_RX_ADDR_P1				0x0b
-#define NRF24_RX_ADDR_P1_RST	0xc2
 /* Receive address data pipe 2 (reset value: 0xc3) */
 #define NRF24_RX_ADDR_P2				0x0c
-#define NRF24_RX_ADDR_P2_RST	0xc3
 /* Receive address data pipe 3 (reset value: 0xc4) */
 #define NRF24_RX_ADDR_P3				0x0d
-#define NRF24_RX_ADDR_P3_RST	0xc4
 /* Receive address data pipe 4 (reset value: 0xc5) */
 #define NRF24_RX_ADDR_P4				0x0e
-#define NRF24_RX_ADDR_P4_RST	0xc5
 /* Receive address data pipe 5 (reset value: 0xc6) */
 #define NRF24_RX_ADDR_P5				0x0f
-#define NRF24_RX_ADDR_P5_RST	0xc6
+#define NRF24_RX_ADDR_PIPE(p)	(p + NRF24_RX_ADDR_P0)
+
 /* Transmit address (reset value: 0xe7e7e7e7e7) */
 #define NRF24_TX_ADDR						0x10
-#define NRF24_TX_ADDR_RST			0xe7
 
 /* Number of  bytes in RX payload in data pipe 0 (reset value: 0b00000000) */
 #define NRF24_RX_PW_P0			0x11
@@ -258,3 +257,5 @@ void io_reset(int spi_fd);
 #ifdef __cplusplus
 } // extern "C"
 #endif
+
+#endif //#ifndef __NRF24L01_IO_H__
