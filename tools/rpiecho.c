@@ -114,7 +114,7 @@ static gboolean timeout_watch_client(gpointer user_data)
 	} while (err != 0);
 
 	/* Put radio in rx mode */
-	nrf24l01_set_prx(spi_fd, addr);
+	nrf24l01_set_prx(spi_fd);
 
 	printf("Waiting for response...\n");
 
@@ -198,7 +198,7 @@ static gboolean timeout_watch_server(gpointer user_data)
 	} while (err != 0);
 
 	/* Put radio in rx mode */
-	nrf24l01_set_prx(spi_fd, addr);
+	nrf24l01_set_prx(spi_fd);
 	printf("Message sent\nWaiting message...\n");
 
 
@@ -217,12 +217,12 @@ static int radio_init(void)
 	/* Init the nrf24l01+ */
 	spi_fd = nrf24l01_init("/dev/spidev0.0", NRF24_PWR_0DBM);
 	/* Set the operation channel - Channel default = 10 */
-	nrf24l01_set_channel(spi_fd, NRF24_CHANNEL_DEFAULT);
+	nrf24l01_set_channel(spi_fd, NRF24_CHANNEL_DEFAULT, 1);
 	nrf24l01_set_standby(spi_fd);
 	/* Open pipe zero */
-	nrf24l01_open_pipe(spi_fd, PIPE0, addr, true);
+	nrf24l01_open_pipe(spi_fd, PIPE0, addr);
 	/* Put the radio in RX mode to start receive packets */
-	nrf24l01_set_prx(spi_fd, addr);
+	nrf24l01_set_prx(spi_fd);
 
 	return 0;
 }
