@@ -26,7 +26,6 @@ static int cli_fd;
 static int quit;
 
 static int CHANNEL_MGMT = 76;			/* Beacon/Broadcast channel */
-static int CHANNEL_RAW = 22;
 static struct channel channelack;
 static struct addr_pipe adrrp;
 static char *option_mac = NULL;
