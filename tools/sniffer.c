@@ -187,6 +187,7 @@ static int sniffer_start(void)
 
 		/* Probably disconnected: return no broadcast channel */
 		if ((tm.tv_sec - last_sec) > 5) {
+			channelack.value = CHANNEL_MGMT;
 			phy_ioctl(cli_fd, NRF24_CMD_SET_CHANNEL, &channelack);
 			phy_ioctl(cli_fd, NRF24_CMD_SET_PIPE, &adrrp);
 			last_sec = tm.tv_sec;
@@ -206,11 +207,11 @@ static int sniffer_start(void)
 		}
 
 		if (channelack.value == CHANNEL_MGMT) {
-			decode_mgmt(sec, usec, p.payload, plen);
 			p.pipe = 0;
+			decode_mgmt(sec, usec, p.payload, plen);
 		} else {
-			decode_raw(sec, usec, p.payload, plen);
 			p.pipe = 1;
+			decode_raw(sec, usec, p.payload, plen);
 		}
 	}
 
