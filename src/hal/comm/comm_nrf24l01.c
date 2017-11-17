@@ -649,6 +649,51 @@ static int read_raw(int spi_fd)
 			break;
 		/* If is Data */
 		case NRF24_PDU_LID_DATA_FRAG:
+		/* Disabled? (Acceptor is always 0) */
+			if (peers[p.pipe-1].keepalive != 0)
+				/* Incoming data: reset keepalive counter */
+				peers[p.pipe-1].keepalive = 1;
+
+			if (peers[p.pipe-1].len_rx != 0)
+				break; /* Discard packet */
+
+			/* Reset offset if sequence number is zero */
+			if (ipdu->nseq == 0) {
+				peers[p.pipe-1].offset_rx = 0;
+				peers[p.pipe-1].seqnumber_rx = 0;
+			}
+
+			/* If sequence number error */
+			if (peers[p.pipe-1].seqnumber_rx < ipdu->nseq)
+				break;
+				/*
+				 * TODO: disconnect, data error!?!?!?
+				 * Illegal byte sequence
+				 */
+
+			if (peers[p.pipe-1].seqnumber_rx > ipdu->nseq)
+				break; /* Discard packet duplicated */
+
+			/* Payloag length = input length - header size */
+			plen = ilen - DATA_HDR_SIZE;
+
+			if (plen < NRF24_PW_MSG_SIZE)
+				break;
+				/*
+				 * TODO: disconnect, data error!?!?!?
+				 * Not a data message
+				 */
+
+			/* Reads no more than DATA_SIZE bytes */
+			if (peers[p.pipe-1].offset_rx + plen > DATA_SIZE)
+				plen = DATA_SIZE - peers[p.pipe-1].offset_rx;
+
+			memcpy(peers[p.pipe-1].buffer_rx +
+				peers[p.pipe-1].offset_rx, ipdu->payload, plen);
+			peers[p.pipe-1].offset_rx += plen;
+			peers[p.pipe-1].seqnumber_rx++;
+
+			break;
 		case NRF24_PDU_LID_DATA_END:
 			/* Disabled? (Acceptor is always 0) */
 			if (peers[p.pipe-1].keepalive != 0)
@@ -695,19 +740,16 @@ static int read_raw(int spi_fd)
 			peers[p.pipe-1].offset_rx += plen;
 			peers[p.pipe-1].seqnumber_rx++;
 
-			/* If is DATA_END then put in rx buffer */
-			if (ipdu->lid == NRF24_PDU_LID_DATA_END) {
-				/* Sets packet length read */
-				peers[p.pipe-1].len_rx =
-					peers[p.pipe-1].offset_rx;
+			/* Sets packet length read */
+			peers[p.pipe-1].len_rx =
+			peers[p.pipe-1].offset_rx;
 
-				/*
-				 * If the complete msg is received,
-				 * resets the controls
-				 */
-				peers[p.pipe-1].seqnumber_rx = 0;
-				peers[p.pipe-1].offset_rx = 0;
-			}
+			/*
+			 * If the complete msg is received,
+			 * resets the controls
+			 */
+			peers[p.pipe-1].seqnumber_rx = 0;
+			peers[p.pipe-1].offset_rx = 0;
 			break;
 		}
 	}
