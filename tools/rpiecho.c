@@ -37,7 +37,6 @@ static char *opt_mode = "server";
 static bool aack, server; //auto-ack and server/client flags
 static int8_t pipe, rx_len, tx_len, tx_status, tx_pipe, err;
 static int32_t tx_stamp, attempt;
-static uint8_t rx_buffer[NRF24_MTU], tx_buffer[NRF24_MTU];
 static uint8_t count, spi_fd;
 static uint8_t pipe_addr[PIPE_MAX][NRF24_ADDR_WIDTHS] = {
 	{0x8D, 0xD9, 0xBE, 0x96, 0xDE},
@@ -80,7 +79,7 @@ static GOptionEntry options[] = {
  * run "./rpiecho -m client" to enter in client mode.
  */
 
-static void setup_radio(uint8_t spi_fd, int8_t aack, bool server)
+static void setup_radio(uint8_t spi_fd, bool server, int8_t aack)
 {
 	/*Raw Setup*/
 	if (aack) {
@@ -108,23 +107,58 @@ static void setup_radio(uint8_t spi_fd, int8_t aack, bool server)
 	}
 };
 
-static int running_raw(bool server)
+static void print_buffer(bool tx, uint8_t pipe, uint8_t len,
+										uint8_t count, char *msg)
 {
+	if (tx)
+		printf("TX");
+	else
+		printf("RX");
+	printf("%d[%d]:", pipe, len);
+	printf("(%d)", count);
+	printf("%s\n", msg);
+}
 
+static uint8_t timeout_stamp(bool aack, bool server)
+{
+	uint8_t timeout;
+	if (aack) {
+		if (server)
+			timeout = 5;
+		else
+			timeout = 11;
+	} else {
+		if (server)
+			timeout = 3;
+		else
+			timeout = 5;
+	}
+	return timeout;
+}
+
+static int running(bool server, bool ack)
+{
+	/*Timeout treshold for listening/echoing state*/
+	uint8_t timeout = timeout_stamp(aack, server);
+	if (aack)
+		tx_pipe = PIPE;
+	else
+		tx_pipe = 0;
 
 	while (1) {
 		/*Server-side Code*/
 		if (server) {
-			if (tx_len != 0 && (hal_time_ms() - tx_stamp) > 5) {
+			/*Echoing*/
+			if (tx_len != 0 && (hal_time_ms() - tx_stamp) > timeout) {
 				memcpy(rx.buffer, tx.buffer, tx_len);
 				nrf24l01_set_ptx(spi_fd, tx_pipe);
-				if (nrf24l01_ptx_data(spi_fd, rx.buffer, 
-													tx_len) == 0) {
-					tx_status = nrf24l01_ptx_wait_datasent(spi_fd);
-					if (tx_status == 0) {
-						printf("TX%d[%d]:", tx_pipe, tx_len);
-						printf("(%d)", tx.data.count);
-						printf("%s\n", tx.data.msg);
+				if (nrf24l01_ptx_data(spi_fd,
+										rx.buffer, tx_len) == 0) {
+					if (nrf24l01_ptx_wait_datasent(spi_fd) == 0) {
+						print_buffer(1, tx_pipe,
+										tx_len,
+										tx.data.count,
+										tx.data.msg);
 						tx_len = 0;
 					}
 				} else
@@ -132,43 +166,36 @@ static int running_raw(bool server)
 				nrf24l01_set_prx(spi_fd);
 				tx_stamp = hal_time_ms();
 			}
-
+			/*Listening*/
 			pipe = nrf24l01_prx_pipe_available(spi_fd);
-
-			if (pipe != NRF24_NO_PIPE) {
+			if (pipe != NRF24_NO_PIPE || (pipe == 0 && !aack)) {
 				rx_len = nrf24l01_prx_data(spi_fd, rx.buffer,
 					NRF24_MTU);
-				if (rx_len != 0) {
-					if (pipe < PIPE_MAX) {
-						printf("RX%d[%d]:", pipe, rx_len);
-						printf("'(%d)", rx.data.count);
-						printf("%s\n", rx.data.msg);
-						memcpy(tx.buffer, rx.buffer, rx_len);
-						tx_len = rx_len;
+				if (rx_len != 0 && (pipe < PIPE_MAX)) {
+					print_buffer(0, pipe, rx_len, 
+										rx.data.count, rx.data.msg);
+					memcpy(tx.buffer, rx.buffer, rx_len);
+					tx_len = rx_len;
+					if (aack) {
 						tx_pipe = pipe;
 						tx_stamp = hal_time_ms();
-					} else {
-						printf("Invalid RX[%d:%d]:'%s'\n", pipe,
-												rx_len, rx.buffer);
 					}
 				}
 			}
 		/*Client-side Code*/
 		} else {
-			if ((hal_time_ms() - tx_stamp) > 11) {
+			/*Broadcasting*/
+			if ((hal_time_ms() - tx_stamp) > timeout) {
 				memcpy(tx.data.msg, MESSAGE, MESSAGE_SIZE);
 				tx.data.count = count;
-				nrf24l01_set_ptx(spi_fd, PIPE);
-				if (nrf24l01_ptx_data(spi_fd, tx.buffer,
-					MSG_SIZE) == 0) {
+				nrf24l01_set_ptx(spi_fd, tx_pipe);
+				tx_status = nrf24l01_ptx_data(spi_fd,
+											tx.buffer, MSG_SIZE);
+				if (tx_status == 0) {
 					tx_status = nrf24l01_ptx_wait_datasent(spi_fd);
 					if (tx_status == 0) {
-						printf("TX%d[%lu:%d]:(%d)%s\n",
-							PIPE,
-							MESSAGE_SIZE,
-							attempt,
-							count,
-							MESSAGE);
+						print_buffer(1, PIPE, MESSAGE_SIZE,
+													count, MESSAGE);
 						attempt = 0;
 						++count;
 					} else
@@ -178,84 +205,23 @@ static int running_raw(bool server)
 				nrf24l01_set_prx(spi_fd);
 				tx_stamp = hal_time_ms();
 			}
-
+			/*Listening*/
 			pipe = nrf24l01_prx_pipe_available(spi_fd);
 			if (pipe != NRF24_NO_PIPE) {
-				rx_len = nrf24l01_prx_data(spi_fd,
+				rx_len = nrf24l01_prx_data(spi_fd, 
 											rx.buffer, NRF24_MTU);
 				if (rx_len != 0) {
-					if (pipe == PIPE) {
-						printf("RX%d[%d]:%c(%d)%s\n",
-							pipe,
-							rx_len,
-							rx.data.count != (count-1)?'*':' ',
-							rx.data.count,
-							rx.data.msg);
-					} else {
-						printf("Invalid RX[%d:%d]:'%s'\n", pipe,
-							rx_len, rx.buffer);
-					}
+					print_buffer(0, pipe, rx_len,
+									rx.data.count, rx.data.msg);
 				}
 			}
 		}
 	}
 	/*To-Do: Return possible errors*/
 	return 0;
+
 };
 
-
-static int running_bdcast(bool server)
-{
-	while (1) {
-		if (server) {
-			/*Server-side Code*/
-			if (rx_len != 0 && (hal_time_ms() - tx_stamp) > 3) {
-				memcpy(tx_buffer, rx_buffer, rx_len);
-				nrf24l01_set_ptx(spi_fd, 0);
-				if (nrf24l01_ptx_data(spi_fd, tx_buffer,
-					rx_len) == 0)
-					nrf24l01_ptx_wait_datasent(spi_fd);
-				nrf24l01_set_prx(spi_fd);
-				tx_stamp = hal_time_ms();
-			}
-
-			if (nrf24l01_prx_pipe_available(spi_fd) == 0) {
-				rx_len = nrf24l01_prx_data(spi_fd,
-					rx_buffer, NRF24_MTU);
-				if (rx_len != 0) {
-					printf("RX[%d]:'%s'\n",
-						rx_len, rx_buffer);
-					memcpy(rx_buffer, MESSAGE,
-						MESSAGE_SIZE-1);
-				}
-			}
-
-		} else {
-			/*Client-side Code*/
-			if ((hal_time_ms() - tx_stamp) > 5) {
-				memcpy(tx_buffer, MESSAGE, MESSAGE_SIZE);
-				nrf24l01_set_ptx(spi_fd, 0);
-				if (nrf24l01_ptx_data(spi_fd,
-					tx_buffer, MESSAGE_SIZE) == 0)
-					nrf24l01_ptx_wait_datasent(spi_fd);
-				tx_stamp = hal_time_ms();
-				nrf24l01_set_prx(spi_fd);
-			}
-
-			if (nrf24l01_prx_pipe_available(spi_fd) == 0)
-				rx_len = nrf24l01_prx_data(spi_fd,
-					rx_buffer, NRF24_MTU);
-			if (rx_len != 0) {
-				printf("TX[%d]:'%s'; RX[%d]:'%s'\n",
-					(int)MESSAGE_SIZE, MESSAGE,
-					rx_len, rx_buffer);
-				printf("Broadcasting...\n");
-			}
-		}
-	}
-	/*To-Do: Return possible errors*/
-	return 0;
-};
 
 int main(int argc, char *argv[])
 {
@@ -275,10 +241,10 @@ int main(int argc, char *argv[])
 	}
 
 	/*Reset config*/
-	rx_len = 0;
-	tx_len = 0;
 	tx_stamp = 0;
 	attempt = 0;
+	rx_len = 0;
+	tx_len = 0;
 	count = 0;
 
 	/*Initialize Radio*/
@@ -291,15 +257,8 @@ int main(int argc, char *argv[])
 	else
 		server = false; /*Client Mode*/
 
-	 setup_radio(spi_fd, aack, server);
-
-	if (aack) {
-		/*Data-Channel*/
-		err = running_raw(server);
-	} else {
-		/*Broadcast-Channel*/
-		err = running_bdcast(server);
-	}
+	setup_radio(spi_fd, server, aack);
+	err = running(server, aack);
 	/*To-Do: Check for possible errors*/
 	return err;
 }
