@@ -319,7 +319,7 @@ done:
 static gboolean remove_known_device(GDBusConnection *connection,
 							const gchar *mac)
 {
-	uint8_t i;
+	uint8_t i, j;
 	gboolean response = FALSE;
 	struct nrf24_mac dev;
 
@@ -329,9 +329,21 @@ static gboolean remove_known_device(GDBusConnection *connection,
 	for (i = 0; i < MAX_PEERS; i++) {
 		if (adapter.known_peers[i].addr.address.uint64 ==
 							dev.address.uint64) {
-			if (!g_dbus_connection_unregister_object(connection,
-				adapter.known_peers[i].registration_id))
-				break;
+			g_dbus_connection_unregister_object(connection,
+							adapter.known_peers[i].registration_id);
+			
+			for (j = 0; j < MAX_PEERS; j++) {
+				if (adapter.known_peers[i].addr.address.uint64 ==
+					peers[j].mac) {
+					/* Close device's pipe and disconnect */
+					hal_comm_close(peers[j].socket_fd);
+					/* Clean peer struct */
+					peers[j].mac = 0;
+					peers[j].socket_fd = -1;
+					j = MAX_PEERS;
+				}
+			}
+			
 			/* Remove mac from struct */
 			adapter.known_peers[i].addr.address.uint64 = 0;
 			g_free(adapter.known_peers[i].alias);
